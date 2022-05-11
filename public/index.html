@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        #user-form-btn-reset { visibility: hidden; }
+        #btn-prev-page, #btn-next-page { width: 100%; }
+        #list-of-users { margin-top: 20px; }
+        .profile { width: 33%; float: left; margin: 5px 0; padding-bottom: 5px; text-align: center; border-bottom: 1px gray dotted; }
+    </style>
+</head>
+<body>
+
+    <div style="width: 25%; float: left;">
+        <form id="user-form" onsubmit="processForm(); return false">
+            <input type="hidden" id="user_id">
+            <label for="name">Name:</label><br>
+            <input type="text" id="name" name="name" required><br>
+            <label for="email">Email:</label><br>
+            <input type="email" id="email" name="email" required><br>
+            <label for="phone">Phone:</label><br>
+            <input type="text" id="phone" name="phone" required><br>
+            <label for="position_id">Position:</label><br>
+            <select id="position_id" name="position_id" required></select><br>
+            <label for="Photo">Photo:</label><br>
+            <input type="file" id="photo" name="photo" accept=".jpg,.jpeg" required><br>
+            <input type="hidden" id="photo_path">
+            <hr>
+            <input id="user-form-btn-submit" type="submit" value="REGISTER">
+            <input id="user-form-btn-reset" type="button" value="CANCEL" onclick="resetForm()">
+        </form>
+    </div>
+    <div style="width: 75%; float: left;">
+        <div style="width: 33%; float: left;">
+            <button id="btn-prev-page" disabled>&larr;</button>
+        </div>
+        <div style="width: 33%; float: left; text-align: center;">
+            <b id="page-number"></b>
+        </div>
+        <div style="width: 33%; float: left;">
+            <button id="btn-next-page" disabled>&rarr;</button>
+        </div>
+        <div style="clear: both;"></div>
+        <div id="list-of-users"></div>
+    </div>
+
+    <script>
+
+        window.onload = loadData;
+
+        function createProfile(user) {
+            var profile = document.createElement('div');
+            profile.className = 'profile';
+            var img = document.createElement('img');
+            img.src = user.photo;
+            img.width = 70;
+            profile.appendChild(img);
+            var name = document.createElement('div');
+            name.innerHTML = user.name + ' [' + user.position + ']';
+            profile.appendChild(name);
+            var email = document.createElement('div');
+            email.innerHTML = user.email;
+            profile.appendChild(email);
+            var phone = document.createElement('div');
+            phone.innerHTML = user.phone;
+            profile.appendChild(phone);
+            var buttons = document.createElement('div');
+            var edit_btn = document.createElement('button');
+            edit_btn.innerHTML = 'EDIT';
+            edit_btn.onclick = function () { loadUser(user.id) };
+            buttons.appendChild(edit_btn);
+            var nbsp = document.createElement('span');
+            nbsp.innerHTML = '&nbsp;'
+            buttons.appendChild(nbsp);
+            var remove_btn = document.createElement('button');
+            remove_btn.innerHTML = 'REMOVE';
+            remove_btn.onclick = function () { if (confirm('Are you sure?')) removeUser(user.id) };
+            buttons.appendChild(remove_btn);
+            profile.appendChild(buttons);
+            return profile;
+        }
+
+        function fillForm(data) {
+            document.getElementById('user_id').value = data.id;
+            document.getElementById('name').value = data.name;
+            document.getElementById('email').value = data.email;
+            document.getElementById('phone').value = data.phone;
+            document.getElementById('position_id').value = data.position_id;
+            document.getElementById('photo').required = false;
+            document.getElementById('photo_path').value = data.photo;
+            document.getElementById('user-form-btn-submit').value = 'UPDATE';
+            document.getElementById('user-form-btn-reset').style.visibility = 'visible';
+        }
+
+        function loadData() {
+            resetForm();
+            var q = parseQuery();
+            loadPositions();
+            loadUsers(q.count, q.page);
+        }
+
+        function loadPositions() {
+            fetch('/api/v1/positions')
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        var select = document.getElementById('position_id');
+                        select.innerHTML = '';
+                        for (var i = 0; i < data.positions.length; i++) {
+                            var pos = data.positions[i];
+                            var opt = document.createElement('option');
+                            opt.value = pos.id;
+                            opt.innerHTML = pos.name;
+                            select.appendChild(opt);
+                        }
+                    } else {
+                        showErrors(data);
+                    }
+                }).catch(function(error) {
+                    console.error(error);
+                });
+        }
+
+        function loadUser(id) {
+            fetch('/api/v1/users/' + (id || 0))
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        fillForm(data.user);
+                    } else {
+                        showErrors(data);
+                    }
+                }).catch(function(error) {
+                    console.error(error);
+                });
+        }
+
+        function loadUsers(count, page) {
+            fetch('/api/v1/users?count=' + (count || 6) + '&page=' + (page || 1))
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        var div = document.getElementById('list-of-users');
+                        div.innerHTML = '';
+                        for (var i = 0; i < data.users.length; i++) {
+                            div.appendChild(createProfile(data.users[i]));
+                        }
+                        var page_num = document.getElementById('page-number');
+                        page_num.innerHTML = data.page + '/' + data.total_pages;
+                        var prev_btn = document.getElementById('btn-prev-page');
+                        var next_btn = document.getElementById('btn-next-page');
+                        prev_btn.disabled = !data.links.prev_url;
+                        prev_btn.onclick = function () { location.href = data.links.prev_url; };
+                        next_btn.disabled = !data.links.next_url;
+                        next_btn.onclick = function () { location.href = data.links.next_url; };
+                    } else {
+                        showErrors(data);
+                    }
+                }).catch(function(error) {
+                    console.error(error);
+                });
+        }
+
+        function parseQuery() {
+            var query = {};
+            var params = location.search.slice(1).split('&');
+            for (var param of params) {
+                var [name, value] = param.split('=');
+                if (value) {
+                    query[name] = value;
+                }
+            }
+            return query;
+        }
+
+        function processForm() {
+            fetch('/api/v1/token')
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        sendFormData(data.token);
+                    } else {
+                        showErrors(data);
+                    }
+                }).catch(function(error) {
+                    console.error(error);
+                });
+        }
+
+        function removeUser(id) {
+            fetch('/api/v1/token')
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        fetch('/api/v1/users/' + (id || 0), {
+                            method: 'DELETE',
+                            headers: { 'Token': data.token }
+                        }).then(function(response) {
+                            return response.json();
+                        }).then(function(data) {
+                            if(data.success) {
+                                alert(data.message);
+                                loadData();
+                            } else {
+                                showErrors(data);
+                            }
+                        }).catch(function(error) {
+                            console.error(error);
+                        });
+                    } else {
+                        showErrors(data);
+                    }
+                }).catch(function(error) {
+                    console.error(error);
+                });
+        }
+
+        function resetForm() {
+            document.getElementById('user-form').reset();
+            document.getElementById('user_id').value = '';
+            document.getElementById('photo_path').value = '';
+            document.getElementById('photo').required = true;
+            document.getElementById('user-form-btn-submit').value = 'REGISTER';
+            document.getElementById('user-form-btn-reset').style.visibility = 'hidden';
+        }
+
+        function sendFormData(token) {
+
+            var formData = new FormData();
+            formData.append('name', document.getElementById('name').value);
+            formData.append('email', document.getElementById('email').value);
+            formData.append('phone', document.getElementById('phone').value);
+            formData.append('position_id', document.getElementById('position_id').value);
+            formData.append('photo', document.getElementById('photo').files[0]);
+            formData.append('photo_path', document.getElementById('photo_path').value);
+
+            var id = document.getElementById('user_id').value;
+
+            fetch('/api/v1/users/' + (id || ''), {
+                method: id ? 'PUT' : 'POST',
+                body: formData,
+                headers: { 'Token': token }
+            }).then(function(response) {
+                return response.json();
+            }).then(function(data) {
+                if(data.success) {
+                    alert(data.message);
+                    loadData();
+                } else {
+                    showErrors(data);
+                }
+            }).catch(function(error) {
+                console.error(error);
+            });
+        }
+
+        function showErrors(data) {
+            if (data.message) {
+                alert(data.message);
+                if (data.fails) {
+                    for (var prop in data.fails) {
+                        alert(data.fails[prop].join('\r\n'));
+                    }
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>

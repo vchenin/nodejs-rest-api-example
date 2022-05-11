@@ -1,0 +1,7 @@
+*.db
+*.log
+*.lock
+
+node_modules/
+public/images/users/*
+!public/images/users/avatar.jpg

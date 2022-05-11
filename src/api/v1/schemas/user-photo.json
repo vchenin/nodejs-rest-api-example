@@ -1,0 +1,19 @@
+{
+    "$id": "/user/photo",
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+        "mimetype": {
+            "type": "string",
+            "enum": ["image/jpeg"]
+        },
+        "size": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 5242880
+        }
+    },
+    "required": [
+        "size", "mimetype"
+    ]
+}
