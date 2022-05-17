@@ -1,5 +1,10 @@
 {
     "token": {
         "expiration_period": 40
+    },
+    "user": {
+        "photo": {
+            "optimize": true
+        }
     }
 }

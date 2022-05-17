@@ -1,8 +1,11 @@
+const config = require('config')
 const { PrismaClient } = require('@prisma/client')
 const Ajv = require('ajv').default
 const fs = require('fs')
 const path = require('path')
 const sharp = require('sharp')
+
+const Picture = require('./Picture')
 
 const prisma = new PrismaClient()
 const ajv = new Ajv({ allErrors: true })
@@ -102,14 +105,20 @@ module.exports = {
             const metadata = await photo.metadata()
             const filename = `${file.md5}.jpg`
             const dirpath = path.join(process.cwd(), 'public', 'images', 'users')
-            await photo
+            let data = await photo
                 .extract({
                     left: Math.floor(metadata.width / 2 - width / 2),
                     top: Math.floor(metadata.height / 2 - height / 2),
                     width,
                     height
                 })
-                .toFile(path.join(dirpath, filename))
+                .toBuffer()
+
+            if (config.user?.photo?.optimize) {
+                data = await Picture.optimize(data)
+            }
+
+            fs.writeFileSync(path.join(dirpath, filename), data)
 
             return `/images/users/${filename}`
 
