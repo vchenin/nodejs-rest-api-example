@@ -1,3 +1,5 @@
+require('dotenv').config()
+
 const express = require('express')
 const upload = require('express-fileupload')
 const path = require('path')
